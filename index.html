@@ -39,9 +39,8 @@
   .stats b { display:block; font-size:1.7rem; color:#7b4fd1; }
   .stats span { font-size:.75rem; color:#777; }
   #ovMsg { font-size:.85rem; color:#555; min-height:2.4em; }
-  details.doc { background:#f3eefc; border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:.85rem; }
-  details.doc summary { cursor:pointer; font-weight:600; }
-  details.doc li { margin:4px 0; }
+
+
 </style>
 </head>
 <body>
@@ -57,20 +56,6 @@
       <button class="sec" id="logoutBtn" style="display:none">Desconectar</button>
       <span id="loginSt" class="note"></span>
     </div>
-    <details class="doc">
-      <summary>📖 ¿Para qué sirve conectar mi cuenta de Pollinations? (opcional)</summary>
-      <p>Puedes generar <b>sin iniciar sesión</b>, pero es lento (1 imagen cada ~45 s) y de menor calidad. Si conectas tu cuenta, la generación es <b>más rápida y con mejor calidad</b>, porque usas tu propio saldo de Pollinations. Para conectarla:</p>
-      <ol>
-        <li>Abre esta página desde un servidor local o publicada, no con doble clic. En una terminal, dentro de <code>mis-paginas</code>: <code>python -m http.server 8000</code> y entra a <code>http://localhost:8000/librito/index.html</code>.</li>
-        <li>Entra a <a href="https://enter.pollinations.ai/keys" target="_blank" rel="noopener">enter.pollinations.ai/keys</a> e inicia sesión.</li>
-        <li>En <b>Apps → Create</b>, pon un nombre y en <b>Redirect URI</b> la dirección exacta de esta página (la ves abajo).</li>
-        <li>Copia la <b>App Key</b> (<code>pk_…</code>, es pública) y pégala en el campo de arriba.</li>
-        <li>Pulsa <b>Conectar con Pollinations</b>, autoriza, y volverás aquí ya conectado.</li>
-        <li>Con la sesión iniciada se usa tu saldo de <i>pollen</i> (se gana con <b>Quests</b>). Si no tienes saldo, la página te avisará y puedes seguir en modo gratuito desconectándote.</li>
-      </ol>
-      <p>Redirect URI de esta página: <code id="ruri"></code></p>
-      <p><b>Seguridad:</b> nunca ves ni pegas una clave secreta. El token de sesión solo vive en esta pestaña (sessionStorage) y caduca solo. Puedes revocarlo en tu panel de Pollinations.</p>
-    </details>
     <div class="row" style="margin-bottom:10px">
       <label>Tema / personajes (en inglés) <input type="text" id="tema" value="cute animals" placeholder="ej: cute animals, dinosaurs, Goku from Dragon Ball" style="width:260px"></label>
       <label></label>
@@ -168,7 +153,6 @@ $('model').addEventListener('change',()=>{ try{localStorage.setItem('pm',$('mode
 // Pégala aquí y el campo desaparece para los usuarios.
 const APP_KEY = 'pk_2SkyBkgEuqElEJB0';
 const RURI = location.origin + location.pathname;
-$('ruri').textContent = RURI;
 try{ $('appkey').value = APP_KEY || localStorage.getItem('appkey')||''; }catch(e){}
 if(APP_KEY) $('appkey').parentElement.style.display='none';
 $('appkey').addEventListener('change',()=>{ try{localStorage.setItem('appkey',$('appkey').value.trim());}catch(e){} });
@@ -179,8 +163,8 @@ function loginUI(){
   $('logoutBtn').style.display = t?'':'none'; $('loginBtn').style.display = t?'none':'';
   $('loginSt').textContent = t ? '✅ Conectado' : '';
   $('aiNote').textContent = t
-    ? 'Sesión iniciada: se generan más rápido y con mejor calidad, usando tu saldo de Pollinations. También puedes subir tus propias imágenes en cada panel.'
-    : 'Sin iniciar sesión (gratis): 1 imagen cada ~45 s y calidad menor, así que "Generar todas" tarda unos 6 min. Conecta tu cuenta para ir más rápido y con mejor calidad, o sube tus propias imágenes en cada panel.';
+    ? 'Sesión iniciada: generación rápida y de mejor calidad.'
+    : 'Sin iniciar sesión: 1 imagen cada ~45 s. Conecta tu cuenta para generar más rápido y con mejor calidad.';
 }
 loginUI();
 $('loginBtn').onclick = async ()=>{
