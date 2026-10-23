@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generador de Libritos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root { --bg:#f6f4fb; --card:#fff; --ink:#222; --acc:#7b4fd1; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:16px; background:var(--acc); color:#fff; }
+  header h1 { margin:0; font-size:1.3rem; }
+  header p { margin:4px 0 0; font-size:.9rem; opacity:.9; }
+  main { display:grid; grid-template-columns: 1fr 1fr; gap:16px; padding:16px; max-width:1300px; margin:auto; }
+  @media (max-width:900px){ main { grid-template-columns:1fr; } }
+  .panel { background:var(--card); border-radius:10px; padding:14px; box-shadow:0 1px 4px #0002; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(190px,1fr)); gap:10px; }
+  .slot { border:1px solid #ddd; border-radius:8px; padding:8px; display:flex; flex-direction:column; gap:6px; }
+  .slot h3 { margin:0; font-size:.85rem; }
+  .thumb { aspect-ratio: 0.64; background:#eee center/cover no-repeat; border-radius:4px; display:flex; align-items:center; justify-content:center; color:#999; font-size:.8rem; text-align:center; }
+  textarea, input[type=text] { width:100%; font:inherit; font-size:.8rem; padding:4px; }
+  textarea { resize:vertical; min-height:44px; }
+  button { cursor:pointer; border:0; background:var(--acc); color:#fff; padding:6px 10px; border-radius:6px; font:inherit; font-size:.8rem; }
+  button.sec { background:#e5def5; color:#333; }
+  .row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  label { font-size:.85rem; }
+  iframe { width:100%; height:70vh; border:1px solid #ddd; border-radius:8px; background:#fff; }
+  .note { font-size:.8rem; color:#666; margin:6px 0 0; }
+  #ov { position:fixed; inset:0; background:#2a1a4acc; display:none; align-items:center; justify-content:center; z-index:10; }
+  #ov .box { background:#fff7fb; border:4px dashed #ff9ccf; border-radius:28px; padding:24px 28px; width:min(420px,90vw); text-align:center; box-shadow:0 8px 30px #0005; }
+  #ov .face { font-size:3.2rem; animation:bounce 1s infinite alternate; }
+  @keyframes bounce { to { transform: translateY(-10px) rotate(5deg); } }
+  #ov h2 { margin:6px 0; color:#d6479b; }
+  .bar { height:22px; background:#ffe0f1; border-radius:20px; overflow:hidden; margin:12px 0; border:2px solid #ffb3dc; }
+  .bar i { display:block; height:100%; width:0; background:repeating-linear-gradient(45deg,#ff7ec0,#ff7ec0 10px,#ffa6d4 10px,#ffa6d4 20px); transition:width .5s; }
+  .stats { display:flex; justify-content:space-around; margin:10px 0; }
+  .stats b { display:block; font-size:1.7rem; color:#7b4fd1; }
+  .stats span { font-size:.75rem; color:#777; }
+  #ovMsg { font-size:.85rem; color:#555; min-height:2.4em; }
+  details.doc { background:#f3eefc; border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:.85rem; }
+  details.doc summary { cursor:pointer; font-weight:600; }
+  details.doc li { margin:4px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Generador de Libritos para colorear</h1>
+  <p>Un pliego A4, 8 paneles: dobla, corta una línea al centro y arma el librito.</p>
+</header>
+<main>
+  <section class="panel">
+    <div class="row" id="loginRow" style="margin-bottom:10px">
+      <label>App Key (pk_…) <input type="text" id="appkey" style="width:170px" placeholder="pk_..."></label>
+      <button id="loginBtn">🔐 Conectar con Pollinations</button>
+      <button class="sec" id="logoutBtn" style="display:none">Desconectar</button>
+      <span id="loginSt" class="note"></span>
+    </div>
+    <details class="doc">
+      <summary>📖 Cómo conectar tu cuenta de Pollinations (sin pegar claves secretas)</summary>
+      <ol>
+        <li>Abre esta página desde un servidor local o publicada, no con doble clic. En una terminal, dentro de <code>mis-paginas</code>: <code>python -m http.server 8000</code> y entra a <code>http://localhost:8000/librito/index.html</code>.</li>
+        <li>Entra a <a href="https://enter.pollinations.ai/keys" target="_blank" rel="noopener">enter.pollinations.ai/keys</a> e inicia sesión.</li>
+        <li>En <b>Apps → Create</b>, pon un nombre y en <b>Redirect URI</b> la dirección exacta de esta página (la ves abajo).</li>
+        <li>Copia la <b>App Key</b> (<code>pk_…</code>, es pública) y pégala en el campo de arriba.</li>
+        <li>Pulsa <b>Conectar con Pollinations</b>, autoriza, y volverás aquí ya conectado.</li>
+        <li>Para generar necesitas saldo de pollen (se gana con <b>Quests</b>).</li>
+      </ol>
+      <p>Redirect URI de esta página: <code id="ruri"></code></p>
+      <p><b>Seguridad:</b> nunca ves ni pegas una clave secreta. El token de sesión solo vive en esta pestaña (sessionStorage) y caduca solo. Puedes revocarlo en tu panel de Pollinations.</p>
+    </details>
+    <div class="row" style="margin-bottom:10px">
+      <label>Tema / personajes (en inglés) <input type="text" id="tema" value="cute animals" placeholder="ej: cute animals, dinosaurs, Goku from Dragon Ball" style="width:260px"></label>
+      <label></label>
+    </div>
+    <div class="row" style="margin-bottom:10px">
+      <label>Modelo <input type="text" id="model" value="flux" style="width:90px"></label>
+    </div>
+    <div class="row" style="margin-bottom:10px">
+      <button id="autoBtn">Generar todas con IA (gratis)</button>
+      <button class="sec" id="pdfBtn">Descargar PDF</button>
+    </div>
+    <p class="note">La IA usa Pollinations (gratis): permite 1 imagen cada ~45 s, así que "Generar todas" tarda unos 6 min. Siempre puedes subir tus propias imágenes en cada panel.</p>
+    <div class="grid" id="slots"></div>
+  </section>
+  <section class="panel">
+    <div class="row" style="margin-bottom:8px"><strong>Vista previa del pliego</strong></div>
+    <iframe id="preview"></iframe>
+    <p class="note">Imprime en hoja A4 horizontal, al 100% (sin ajustar a página). Dobla a la mitad a lo largo y luego en cuatro; corta solo la línea central entre los 2 paneles del centro.</p>
+  </section>
+</main>
+<div id="ov"><div class="box">
+  <div class="face" id="ovFace">(˶ᵔ ᵕ ᵔ˶)</div>
+  <h2>¡Dibujando tu librito!</h2>
+  <div class="bar"><i id="ovBar"></i></div>
+  <div class="stats">
+    <div><b id="ovDone">0</b><span>listas ✨</span></div>
+    <div><b id="ovLeft">8</b><span>faltan 🎨</span></div>
+    <div><b id="ovTime">0:00</b><span>tiempo ⏱️</span></div>
+  </div>
+  <div id="ovMsg"></div>
+  <button class="sec" id="ovCancel">Cancelar</button>
+</div></div>
+
+<script>
+const { jsPDF } = window.jspdf;
+// Orden de lectura del librito: portada, 6 láminas, contraportada
+const NAMES = ['Portada','Página 2','Página 3','Página 4','Página 5','Página 6','Página 7','Contraportada'];
+const imgs = new Array(8).fill(null);   // HTMLImageElement | null
+const PAGE_IDEAS = ['', 'main character standing in a fun pose, full body, facing front',
+  'two characters playing together, happy action pose, full body', 'main character flying in the sky, full body',
+  'main character jumping with joy, arms up', 'the whole group of characters standing together',
+  'cute chibi version of the main character smiling, full body', ''];
+const prompts = NAMES.map((n,i)=> i===0 ? 'main characters together in a fun pose, full color' : i===7 ? 'main character smiling and waving, full color' : PAGE_IDEAS[i]);
+// Posición en el pliego (fila, columna, rotado) para cada página (1..8)
+const POS = [
+  {r:1,c:1,rot:false}, // 1 portada
+  {r:1,c:2,rot:false}, // 2
+  {r:1,c:3,rot:false}, // 3
+  {r:0,c:3,rot:true},  // 4
+  {r:0,c:2,rot:true},  // 5
+  {r:0,c:1,rot:true},  // 6
+  {r:0,c:0,rot:true},  // 7
+  {r:1,c:0,rot:false}, // 8 contraportada
+];
+const $ = id => document.getElementById(id);
+
+// ---- UI de slots
+const slotsEl = $('slots');
+NAMES.forEach((name,i)=>{
+  const d = document.createElement('div'); d.className='slot';
+  d.innerHTML = `<h3>${i+1}. ${name}</h3>
+    <div class="thumb" id="th${i}">vacío</div>
+    <textarea id="pr${i}">${prompts[i]}</textarea>
+    <div class="row">
+      <button data-gen="${i}">IA</button>
+      <button class="sec" data-up="${i}">Subir</button>
+      <input type="file" accept="image/*" hidden id="f${i}">
+    </div>`;
+  slotsEl.appendChild(d);
+});
+slotsEl.addEventListener('click', e=>{
+  const g=e.target.dataset.gen, u=e.target.dataset.up;
+  if(g!==undefined) generate(+g);
+  if(u!==undefined) $('f'+u).click();
+});
+NAMES.forEach((_,i)=> $('f'+i).addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const url=URL.createObjectURL(f); setImg(i,url);
+}));
+
+function setImg(i,url){
+  return new Promise(res=>{
+    const im=new Image(); im.crossOrigin='anonymous';
+    im.onload=()=>{ imgs[i]=im; $('th'+i).style.backgroundImage=`url(${url})`; $('th'+i).textContent=''; refresh(); res(); };
+    im.onerror=()=>{ $('th'+i).textContent='error, reintenta'; res(); };
+    im.src=url;
+  });
+}
+
+let cancel=false;
+try{ $('model').value=localStorage.getItem('pm')||'flux'; }catch(e){}
+$('model').addEventListener('change',()=>{ try{localStorage.setItem('pm',$('model').value.trim());}catch(e){} });
+// ---- Login Pollinations (OAuth code + PKCE, sin backend)
+// Clave pública de la app (client_id). Se crea una sola vez en enter.pollinations.ai/keys -> Apps -> Create.
+// Pégala aquí y el campo desaparece para los usuarios.
+const APP_KEY = 'pk_2SkyBkgEuqElEJB0';
+const RURI = location.origin + location.pathname;
+$('ruri').textContent = RURI;
+try{ $('appkey').value = APP_KEY || localStorage.getItem('appkey')||''; }catch(e){}
+if(APP_KEY) $('appkey').parentElement.style.display='none';
+$('appkey').addEventListener('change',()=>{ try{localStorage.setItem('appkey',$('appkey').value.trim());}catch(e){} });
+const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+function getKey(){ try{ return sessionStorage.getItem('ptoken')||''; }catch(e){ return ''; } }
+function loginUI(){
+  let t=null; try{ t=sessionStorage.getItem('ptoken'); }catch(e){}
+  $('logoutBtn').style.display = t?'':'none'; $('loginBtn').style.display = t?'none':'';
+  $('loginSt').textContent = t ? '✅ Conectado' : '';
+}
+$('loginBtn').onclick = async ()=>{
+  const ck=$('appkey').value.trim();
+  if(!ck.startsWith('pk_')){ $('loginSt').textContent='Pega primero tu App Key (pk_…)'; return; }
+  try{ localStorage.setItem('appkey',ck); }catch(e){}
+  const verifier=b64url(crypto.getRandomValues(new Uint8Array(32)));
+  const challenge=b64url(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));
+  const state=crypto.randomUUID();
+  sessionStorage.setItem('pkce',JSON.stringify({verifier,state,ck}));
+  location.href='https://enter.pollinations.ai/authorize?'+new URLSearchParams({
+    response_type:'code', client_id:ck, redirect_uri:RURI, scope:'usage', state,
+    code_challenge:challenge, code_challenge_method:'S256' });
+};
+$('logoutBtn').onclick=()=>{ try{sessionStorage.removeItem('ptoken');}catch(e){} loginUI(); };
+(async function handleCallback(){
+  const q=new URLSearchParams(location.search);
+  if(!q.get('code')){ loginUI(); return; }
+  history.replaceState(null,'',location.pathname);
+  try{
+    const sv=JSON.parse(sessionStorage.getItem('pkce')||'{}'); sessionStorage.removeItem('pkce');
+    if(!sv.state || q.get('state')!==sv.state) throw new Error('state no coincide');
+    const r=await fetch('https://enter.pollinations.ai/api/oauth/token',{
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:new URLSearchParams({grant_type:'authorization_code',code:q.get('code'),client_id:sv.ck,redirect_uri:RURI,code_verifier:sv.verifier}) });
+    const j=await r.json();
+    if(!r.ok||!j.access_token) throw new Error(j.error_description||j.error||('error '+r.status));
+    sessionStorage.setItem('ptoken',j.access_token);
+  }catch(e){ $('loginSt').textContent='No se pudo conectar: '+e.message; return; }
+  loginUI();
+})();
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+const msg = t => { $('ovMsg').textContent=t; };
+const fmt = sec => Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');
+async function generate(i){
+  const color = (i===0||i===7);
+  const base = color
+    ? 'children book cover illustration, colorful, cartoon style, '
+    : 'coloring book page, anime style, simple bold black outline drawing, line art only, pure white background, no shading, no gray tones, no color, no fill, thick clean lines, large simple shapes, ';
+  const p = `${base}${$('tema').value}, ${$('pr'+i).value}`;
+  const th = $('th'+i);
+  th.style.backgroundImage='';
+  for(let intento=0; intento<6; intento++){
+    const seed = Math.floor(Math.random()*1e6);
+    const key=getKey(), model=$('model').value.trim();
+    const q=`width=640&height=1000&seed=${seed}&nologo=true${model&&(key||intento<2)?'&model='+encodeURIComponent(model):''}`;
+    const url = key ? `https://gen.pollinations.ai/image/${encodeURIComponent(p)}?${q}`
+                    : `https://image.pollinations.ai/prompt/${encodeURIComponent(p)}?${q}`;
+    th.textContent = intento ? `reintento ${intento}…` : 'generando…';
+    msg(`Pintando «${NAMES[i]}»… ${intento?'(intento '+(intento+1)+')':''}`);
+    let err='';
+    try{
+      const r = await fetch(url, key?{headers:{Authorization:'Bearer '+key}}:{});
+      const ct = r.headers.get('content-type')||'';
+      if(r.ok && ct.startsWith('image')){
+        await setImg(i, URL.createObjectURL(await r.blob()));
+        return;
+      }
+      err = `error ${r.status}`;
+      if(key && (r.status===401||r.status===402||r.status===403)){ th.textContent=`${err}: revisa la clave o el saldo (pollen)`; msg(th.textContent); return; }
+    }catch(e){ err='sin conexión'; }
+    const espera = key ? 8 : 47;
+    for(let s=espera; s>0; s--){ if(cancel) return; th.textContent=`${err}, reintento en ${s}s`; msg(`${err}. Reintentando en ${s}s ⏳`); await sleep(1000); }
+  }
+  th.textContent='falló; usa Subir';
+}
+$('autoBtn').onclick = async ()=>{
+  cancel=false; const t0=Date.now(); let done=0;
+  $('ov').style.display='flex'; $('ovFace').textContent='(˶ᵔ ᵕ ᵔ˶)'; $('ovCancel').onclick=()=>{ cancel=true; };
+  const tick=setInterval(()=>{ $('ovTime').textContent=fmt(Math.round((Date.now()-t0)/1000)); },500);
+  const upd=()=>{ $('ovDone').textContent=done; $('ovLeft').textContent=8-done; $('ovBar').style.width=(done/8*100)+'%'; };
+  upd();
+  for(let i=0;i<8 && !cancel;i++){
+    await generate(i);
+    if(imgs[i]) done++;
+    upd();
+    if(i<7 && !cancel){ for(let s=(getKey()?3:46);s>0 && !cancel;s--){ msg(`Descansito para la IA… ${s}s 🌸`); await sleep(1000); } }
+  }
+  clearInterval(tick);
+  $('ovFace').textContent = cancel ? '(｡•́︿•̀｡)' : '(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧';
+  msg(cancel ? 'Cancelado' : '¡Listo! Revisa la vista previa y descarga tu PDF 💖');
+  $('ovCancel').textContent='Cerrar';
+  $('ovCancel').onclick=()=>{ $('ov').style.display='none'; $('ovCancel').textContent='Cancelar'; };
+  if(!cancel) return;
+};
+$('ovCancel').onclick=()=>{ cancel=true; };
+
+// ---- Construcción del PDF
+const PW=297, PH=210, M=12, G=6;
+const CW=(PW-2*M-3*G)/4, CH=(PH-2*M-G)/2;
+
+function cellCanvas(im, rot, idx){
+  const k=12, w=Math.round(CW*k), h=Math.round(CH*k);
+  const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+  const x=cv.getContext('2d');
+  x.fillStyle='#fff'; x.fillRect(0,0,w,h);
+  if(rot){ x.translate(w,h); x.rotate(Math.PI); }
+  if(im){
+    const s=Math.max(w/im.width, h/im.height);
+    const dw=im.width*s, dh=im.height*s;
+    try{ x.drawImage(im,(w-dw)/2,(h-dh)/2,dw,dh); }catch(e){}
+  }
+  return cv.toDataURL('image/jpeg',0.92);
+}
+
+function build(){
+  const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  // paneles
+  POS.forEach((p,i)=>{
+    const x=M+p.c*(CW+G), y=M+p.r*(CH+G);
+    pdf.addImage(cellCanvas(imgs[i],p.rot,i),'JPEG',x,y,CW,CH);
+    pdf.setDrawColor(0); pdf.setLineWidth(.6); pdf.rect(x,y,CW,CH);
+  });
+  // líneas de doblez/corte
+  pdf.setLineWidth(.2); pdf.setDrawColor(90); pdf.setLineDashPattern([1.5,1.5],0);
+  pdf.rect(5,5,PW-10,PH-10);
+  pdf.setLineDashPattern([],0);
+  return pdf;
+}
+
+let t;
+function refresh(){ clearTimeout(t); t=setTimeout(()=>{ $('preview').src=build().output('bloburl'); },300); }
+$('pdfBtn').onclick=()=>build().save('librito.pdf');
+refresh();
+</script>
+</body>
+</html>
