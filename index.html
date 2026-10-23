@@ -58,14 +58,15 @@
       <span id="loginSt" class="note"></span>
     </div>
     <details class="doc">
-      <summary>📖 Cómo conectar tu cuenta de Pollinations (sin pegar claves secretas)</summary>
+      <summary>📖 ¿Para qué sirve conectar mi cuenta de Pollinations? (opcional)</summary>
+      <p>Puedes generar <b>sin iniciar sesión</b>, pero es lento (1 imagen cada ~45 s) y de menor calidad. Si conectas tu cuenta, la generación es <b>más rápida y con mejor calidad</b>, porque usas tu propio saldo de Pollinations. Para conectarla:</p>
       <ol>
         <li>Abre esta página desde un servidor local o publicada, no con doble clic. En una terminal, dentro de <code>mis-paginas</code>: <code>python -m http.server 8000</code> y entra a <code>http://localhost:8000/librito/index.html</code>.</li>
         <li>Entra a <a href="https://enter.pollinations.ai/keys" target="_blank" rel="noopener">enter.pollinations.ai/keys</a> e inicia sesión.</li>
         <li>En <b>Apps → Create</b>, pon un nombre y en <b>Redirect URI</b> la dirección exacta de esta página (la ves abajo).</li>
         <li>Copia la <b>App Key</b> (<code>pk_…</code>, es pública) y pégala en el campo de arriba.</li>
         <li>Pulsa <b>Conectar con Pollinations</b>, autoriza, y volverás aquí ya conectado.</li>
-        <li>Para generar necesitas saldo de pollen (se gana con <b>Quests</b>).</li>
+        <li>Con la sesión iniciada se usa tu saldo de <i>pollen</i> (se gana con <b>Quests</b>). Si no tienes saldo, la página te avisará y puedes seguir en modo gratuito desconectándote.</li>
       </ol>
       <p>Redirect URI de esta página: <code id="ruri"></code></p>
       <p><b>Seguridad:</b> nunca ves ni pegas una clave secreta. El token de sesión solo vive en esta pestaña (sessionStorage) y caduca solo. Puedes revocarlo en tu panel de Pollinations.</p>
@@ -78,10 +79,10 @@
       <label>Modelo <input type="text" id="model" value="flux" style="width:90px"></label>
     </div>
     <div class="row" style="margin-bottom:10px">
-      <button id="autoBtn">Generar todas con IA (gratis)</button>
+      <button id="autoBtn">Generar todas con IA</button>
       <button class="sec" id="pdfBtn">Descargar PDF</button>
     </div>
-    <p class="note">La IA usa Pollinations (gratis): permite 1 imagen cada ~45 s, así que "Generar todas" tarda unos 6 min. Siempre puedes subir tus propias imágenes en cada panel.</p>
+    <p class="note" id="aiNote"></p>
     <div class="grid" id="slots"></div>
   </section>
   <section class="panel">
@@ -177,7 +178,11 @@ function loginUI(){
   let t=null; try{ t=sessionStorage.getItem('ptoken'); }catch(e){}
   $('logoutBtn').style.display = t?'':'none'; $('loginBtn').style.display = t?'none':'';
   $('loginSt').textContent = t ? '✅ Conectado' : '';
+  $('aiNote').textContent = t
+    ? 'Sesión iniciada: se generan más rápido y con mejor calidad, usando tu saldo de Pollinations. También puedes subir tus propias imágenes en cada panel.'
+    : 'Sin iniciar sesión (gratis): 1 imagen cada ~45 s y calidad menor, así que "Generar todas" tarda unos 6 min. Conecta tu cuenta para ir más rápido y con mejor calidad, o sube tus propias imágenes en cada panel.';
 }
+loginUI();
 $('loginBtn').onclick = async ()=>{
   const ck=$('appkey').value.trim();
   if(!ck.startsWith('pk_')){ $('loginSt').textContent='Pega primero tu App Key (pk_…)'; return; }
