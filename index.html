@@ -58,7 +58,7 @@
     </div>
     <div class="row" style="margin-bottom:10px">
       <label>Tema / personajes (en inglés) <input type="text" id="tema" value="cute animals" placeholder="ej: cute animals, dinosaurs, Goku from Dragon Ball" style="width:260px"></label>
-      <label></label>
+      <button class="sec" id="resetPr" title="Vuelve el tema y los prompts a sus valores iniciales">Restablecer prompts</button>
     </div>
     <div class="row" style="margin-bottom:10px">
       <label>Modelo <input type="text" id="model" value="flux" style="width:90px"></label>
@@ -122,6 +122,7 @@ NAMES.forEach((name,i)=>{
     <div class="row">
       <button data-gen="${i}">IA</button>
       <button class="sec" data-up="${i}">Subir</button>
+      <button class="sec" data-del="${i}" title="Quitar esta imagen" style="display:none">🗑 Quitar</button>
       <input type="file" accept="image/*" hidden id="f${i}">
     </div>`;
   slotsEl.appendChild(d);
@@ -130,20 +131,47 @@ slotsEl.addEventListener('click', e=>{
   const g=e.target.dataset.gen, u=e.target.dataset.up;
   if(g!==undefined) generate(+g);
   if(u!==undefined) $('f'+u).click();
+  if(e.target.dataset.del!==undefined) clearImg(+e.target.dataset.del);
 });
 NAMES.forEach((_,i)=> $('f'+i).addEventListener('change', e=>{
   const f=e.target.files[0]; if(!f) return;
-  const url=URL.createObjectURL(f); setImg(i,url);
+  const url=URL.createObjectURL(f); setImg(i,url,f); e.target.value='';
 }));
 
-function setImg(i,url){
+// Imágenes guardadas en el navegador (IndexedDB)
+const idbP = new Promise((ok,no)=>{ const r=indexedDB.open('libritos',1); r.onupgradeneeded=()=>r.result.createObjectStore('img'); r.onsuccess=()=>ok(r.result); r.onerror=()=>no(r.error); });
+const idbDo = (mode,fn)=> idbP.then(d=>new Promise((ok,no)=>{ const t=d.transaction('img',mode), r=fn(t.objectStore('img')); t.oncomplete=()=>ok(r&&r.result); t.onerror=()=>no(t.error); })).catch(()=>null);
+
+function setImg(i,url,blob){
   return new Promise(res=>{
     const im=new Image(); im.crossOrigin='anonymous';
-    im.onload=()=>{ imgs[i]=im; $('th'+i).style.backgroundImage=`url(${url})`; $('th'+i).textContent=''; refresh(); res(); };
+    im.onload=()=>{ imgs[i]=im; $('th'+i).style.backgroundImage=`url(${url})`; $('th'+i).textContent=''; document.querySelector(`[data-del="${i}"]`).style.display=''; if(blob) idbDo('readwrite',s=>s.put(blob,'i'+i)); refresh(); res(); };
     im.onerror=()=>{ $('th'+i).textContent='error, reintenta'; res(); };
     im.src=url;
   });
 }
+function clearImg(i){
+  imgs[i]=null; $('th'+i).style.backgroundImage=''; $('th'+i).textContent='vacío';
+  document.querySelector(`[data-del="${i}"]`).style.display='none';
+  idbDo('readwrite',s=>s.delete('i'+i)); refresh();
+}
+NAMES.forEach(async (_,i)=>{ const b=await idbDo('readonly',s=>s.get('i'+i)); if(b) setImg(i,URL.createObjectURL(b)); });
+
+// ---- Guardado automático de tema y prompts en el navegador
+const PR_DEF = {tema: $('tema').value, pr: prompts.slice()};
+const prIds = ['tema', ...NAMES.map((_,i)=>'pr'+i)];
+try{
+  const sv = JSON.parse(localStorage.getItem('prompts')||'null');
+  if(sv) prIds.forEach(id=>{ if(typeof sv[id]==='string') $(id).value=sv[id]; });
+}catch(e){}
+const savePr = ()=>{ try{ localStorage.setItem('prompts', JSON.stringify(Object.fromEntries(prIds.map(id=>[id,$(id).value])))); }catch(e){} };
+prIds.forEach(id=> $(id).addEventListener('input', savePr));
+$('resetPr').addEventListener('click', ()=>{
+  if(!confirm('¿Volver el tema y los prompts a sus valores iniciales?')) return;
+  $('tema').value=PR_DEF.tema; PR_DEF.pr.forEach((p,i)=> $('pr'+i).value=p);
+  try{ localStorage.removeItem('prompts'); }catch(e){}
+});
+
 
 let cancel=false;
 try{ $('model').value=localStorage.getItem('pm')||'flux'; }catch(e){}
@@ -220,7 +248,7 @@ async function generate(i){
       const r = await fetch(url, key?{headers:{Authorization:'Bearer '+key}}:{});
       const ct = r.headers.get('content-type')||'';
       if(r.ok && ct.startsWith('image')){
-        await setImg(i, URL.createObjectURL(await r.blob()));
+        const blob=await r.blob(); await setImg(i, URL.createObjectURL(blob), blob);
         return;
       }
       err = `error ${r.status}`;
