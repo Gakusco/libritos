@@ -176,7 +176,6 @@ $('resetPr').addEventListener('click', ()=>{
 
 
 // ---- Respaldo: exportar / importar
-try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
 const toData = b => new Promise(ok=>{ const r=new FileReader(); r.onload=()=>ok(r.result); r.readAsDataURL(b); });
 $('expBtn').addEventListener('click', async ()=>{
   const out={app:'libritos', v:1, prompts:Object.fromEntries(prIds.map(id=>[id,$(id).value])), imgs:[]};
