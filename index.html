@@ -58,6 +58,8 @@
     </div>
     <div class="row" style="margin-bottom:10px">
       <label>Tema / personajes (en inglés) <input type="text" id="tema" value="cute animals" placeholder="ej: cute animals, dinosaurs, Goku from Dragon Ball" style="width:260px"></label>
+      <button class="sec" id="expBtn" title="Descarga un archivo de respaldo con prompts e imágenes">💾 Respaldo</button>
+      <label title="Carga un archivo de respaldo (reemplaza lo actual)" style="cursor:pointer;background:#e5def5;color:#333;padding:6px 10px;border-radius:6px;font-size:.8rem">📂 Importar<input type="file" id="impFile" accept=".json,application/json" hidden></label>
       <button class="sec" id="resetPr" title="Vuelve el tema y los prompts a sus valores iniciales">Restablecer prompts</button>
     </div>
     <div class="row" style="margin-bottom:10px">
@@ -172,6 +174,32 @@ $('resetPr').addEventListener('click', ()=>{
   try{ localStorage.removeItem('prompts'); }catch(e){}
 });
 
+
+// ---- Respaldo: exportar / importar
+try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
+const toData = b => new Promise(ok=>{ const r=new FileReader(); r.onload=()=>ok(r.result); r.readAsDataURL(b); });
+$('expBtn').addEventListener('click', async ()=>{
+  const out={app:'libritos', v:1, prompts:Object.fromEntries(prIds.map(id=>[id,$(id).value])), imgs:[]};
+  for(let i=0;i<8;i++){ const b=await idbDo('readonly',s=>s.get('i'+i)); out.imgs.push(b?await toData(b):null); }
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:'application/json'}));
+  a.download='libritos-respaldo-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+});
+$('impFile').addEventListener('change', async e=>{
+  const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  if(!confirm('Importar este respaldo reemplazará lo que tienes ahora. ¿Continuar?')) return;
+  try{
+    const j=JSON.parse(await f.text());
+    if(j.app!=='libritos'||j.v!==1) throw new Error('archivo no válido');
+    try{ localStorage.setItem('prompts',JSON.stringify(j.prompts)); }catch(x){}
+    for(let i=0;i<8;i++){
+      if(j.imgs[i]){ const b=await (await fetch(j.imgs[i])).blob(); await idbDo('readwrite',s=>s.put(b,'i'+i)); }
+      else await idbDo('readwrite',s=>s.delete('i'+i));
+    }
+    location.reload();
+  }catch(err){ alert('No se pudo importar: '+err.message); }
+});
 
 let cancel=false;
 try{ $('model').value=localStorage.getItem('pm')||'flux'; }catch(e){}
