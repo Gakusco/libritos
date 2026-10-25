@@ -4,3 +4,7 @@ Genera un pliego A4 de 8 paneles (portada, 6 páginas y contraportada) que se do
 Las imágenes se generan con [Pollinations](https://pollinations.ai) iniciando sesión con tu propia cuenta, o puedes subir las tuyas.
 
 Página estática, sin backend: `index.html`.
+
+## IA local por VPN
+
+Además de Pollinations, el motor **IA local (VPN)** genera las imágenes en un servidor propio (ver `ia-local`). Indica la URL HTTPS del servidor y su token; se guardan solo en tu navegador.
